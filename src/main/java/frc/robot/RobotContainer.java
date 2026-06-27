@@ -74,20 +74,9 @@ public class RobotContainer
                                                                     .allianceRelativeControl(true);
   // Derive the heading axis with math!
   SwerveInputStream driveDirectAngleKeyboard     = driveAngularVelocityKeyboard.copy()
-    .withControllerHeadingAxis(() ->
-                                  Math.sin(
-                                      driverXbox.getRawAxis(
-                                          2) *
-                                      Math.PI) *
-                                  (Math.PI *
-                                    2),
-                              () ->
-                                  Math.cos(
-                                      driverXbox.getRawAxis(
-                                          2) *
-                                      Math.PI) *
-                                  (Math.PI *
-                                    2))
+    .withControllerHeadingAxis(() -> Math.sin(driverXbox.getRawAxis(2) * Math.PI) * (Math.PI * 2),
+                               () -> Math.cos(driverXbox.getRawAxis(2) * Math.PI) * (Math.PI * 2)
+    )
     .headingWhile(true)
     .translationHeadingOffset(true)
     .translationHeadingOffset(Rotation2d.fromDegrees(
@@ -129,118 +118,89 @@ public class RobotContainer
    * {@link CommandXboxController Xbox}/{@link edu.wpi.first.wpilibj2.command.button.CommandPS4Controller PS4}
    * controllers or {@link edu.wpi.first.wpilibj2.command.button.CommandJoystick Flight joysticks}.
    */
-  private void configureBindings()
-  {
-    //----------------------------------------------------------------------------------------
-    //swerve buttons
-    //----------------------------------------------------------------------------------------
-    Command driveFieldOrientedDirectAngle      = drivebase.driveFieldOriented(driveDirectAngle);
-    Command driveFieldOrientedAnglularVelocity = drivebase.driveFieldOriented(driveAngularVelocity);
-    Command driveRobotOrientedAngularVelocity  = drivebase.driveFieldOriented(driveRobotOriented);
-    Command driveSetpointGen = drivebase.driveWithSetpointGeneratorFieldRelative(
-        driveDirectAngle);
-    Command driveFieldOrientedDirectAngleKeyboard      = drivebase.driveFieldOriented(driveDirectAngleKeyboard);
-    Command driveFieldOrientedAnglularVelocityKeyboard = drivebase.driveFieldOriented(driveAngularVelocityKeyboard);
-    Command driveSetpointGenKeyboard = drivebase.driveWithSetpointGeneratorFieldRelative(
-        driveDirectAngleKeyboard);
+  private void configureBindings() {
+    configureBindingsDrive();
+    configureBindingsSimulation();
+    configureBindingsTest();
 
-    if (RobotBase.isSimulation())
-    {
-      drivebase.setDefaultCommand(driveFieldOrientedDirectAngleKeyboard);
-    } else
-    {
-      drivebase.setDefaultCommand(driveFieldOrientedAnglularVelocity);
+  }
+
+  private void configureBindingsDrive() {
+
+    Command driveFieldOrientedAngularVelocity = drivebase.driveFieldOriented(driveAngularVelocity);
+    Command driveFieldOrientedDirectAngleKeyboard = drivebase.driveFieldOriented(driveDirectAngleKeyboard);
+
+    if (RobotBase.isSimulation()) {
+        drivebase.setDefaultCommand(driveFieldOrientedDirectAngleKeyboard);
+    } else {
+        drivebase.setDefaultCommand(driveFieldOrientedAngularVelocity);
     }
+
+    configureBindingsDriverUtilities();
+
+}
+
+
+  private void configureBindingsSimulation() {
 
     if (Robot.isSimulation())
     {
-      Pose2d target = new Pose2d(new Translation2d(1, 4),
-                                 Rotation2d.fromDegrees(90));
-      //drivebase.getSwerveDrive().field.getObject("targetPose").setPose(target);
-      driveDirectAngleKeyboard.driveToPose(() -> target,
-                                           new ProfiledPIDController(5,
-                                                                     0,
-                                                                     0,
-                                                                     new Constraints(5, 2)),
-                                           new ProfiledPIDController(5,
-                                                                     0,
-                                                                     0,
-                                                                     new Constraints(Units.degreesToRadians(360),
-                                                                                     Units.degreesToRadians(180))
-                                           ));
-      driverXbox.start().onTrue(Commands.runOnce(() -> drivebase.resetOdometry(new Pose2d(3, 3, new Rotation2d()))));
+
+      driverXbox.start().onTrue(
+        Commands.runOnce(
+          () -> drivebase.resetOdometry(new Pose2d(3, 3, new Rotation2d()))
+        )
+      );
       driverXbox.button(1).whileTrue(drivebase.sysIdDriveMotorCommand());
-      driverXbox.button(2).whileTrue(Commands.runEnd(() -> driveDirectAngleKeyboard.driveToPoseEnabled(true),
-                                                     () -> driveDirectAngleKeyboard.driveToPoseEnabled(false)));
 
+      driverXbox.button(2).whileTrue(
+        Commands.runEnd(
+          () -> driveDirectAngleKeyboard.driveToPoseEnabled(true),
+          () -> driveDirectAngleKeyboard.driveToPoseEnabled(false)
+        )
+      );
 
     }
-    if (DriverStation.isTest())
-    {
-      drivebase.setDefaultCommand(driveFieldOrientedAnglularVelocity); 
+  } 
 
-      driverXbox.x().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
-      driverXbox.start().onTrue((Commands.runOnce(drivebase::zeroGyro)));
-      driverXbox.back().whileTrue(drivebase.centerModulesCommand());
-      driverXbox.leftBumper().onTrue(Commands.none());
-      driverXbox.rightBumper().onTrue(Commands.none());
-    } else
-    {
-      driverXbox.a().onTrue((Commands.runOnce(drivebase::zeroGyro)));
-      driverXbox.x().onTrue(Commands.runOnce(drivebase::addFakeVisionReading));
-      driverXbox.start().whileTrue(Commands.none());
-      driverXbox.back().whileTrue(Commands.none());
-      //driverXbox.leftBumper().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
-      //driverXbox.rightBumper().onTrue(Commands.none());
+  private void configureBindingsTest() {
+
+    if (!DriverStation.isTest()) {
+        return;
     }
 
-    //----------------------------------------------------------------------------------------
-    //end of swerve buttons
-    //----------------------------------------------------------------------------------------
-// COMENTADO PARA TESTE --===----==---=-=---=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=---=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=--=-=---=-=-=-=-==-=-=-
-    // boolean isUsarUmControle = false;
-    // //true = 1 controle
-    // //false = 2 controle
-    // double velocityRps = 73; //Shooter
-    // double velocityBuffer = -0.6;
-    // double velocityIntake = 0.6;
+    drivebase.setDefaultCommand(
+        drivebase.driveFieldOriented(driveAngularVelocity));
 
-    // Command shooterCommand = Commands.startEnd(() -> shooterSubsystem.velocityOut(velocityRps), shooterSubsystem::stop, shooterSubsystem);
-    //                     //.alongWith(Commands.startEnd(() -> intakeSubsystem.percentOut(velocityIntake), intakeSubsystem::stop, intakeSubsystem));
+    driverXbox.x().whileTrue(
+        Commands.runOnce(drivebase::lock, drivebase).repeatedly());
 
-    // Command bufferShooterCommand = Commands.startEnd(() -> shooterSubsystem.velocityOut(30), shooterSubsystem::stop, shooterSubsystem)
-    //                     .alongWith(Commands.startEnd(() -> bufferSubsystem.percentOut(-0.9), bufferSubsystem::stop, bufferSubsystem));
+    driverXbox.start()
+        .onTrue(Commands.runOnce(drivebase::zeroGyro));
 
-    // Command bufferShooterCommand2 = Commands.startEnd(() -> shooterSubsystem.velocityOut(45), shooterSubsystem::stop, shooterSubsystem)
-    //                     .alongWith(Commands.startEnd(() -> bufferSubsystem.percentOut(-0.9), bufferSubsystem::stop, bufferSubsystem));
+    driverXbox.back()
+        .whileTrue(drivebase.centerModulesCommand());
 
-    // Command ShootAutoCommand = new ShootAuto(bufferSubsystem, shooterSubsystem, intakeSubsystem, velocityRps);
+    driverXbox.leftBumper().onTrue(Commands.none());
+    driverXbox.rightBumper().onTrue(Commands.none());
 
-  //   if (isUsarUmControle) {
-    
-  //   driverXbox.rightBumper().whileTrue(ShootAutoCommand);
-  //   driverXbox.y().whileTrue(Commands.startEnd(() -> bufferSubsystem.percentOutServo(-0.05), bufferSubsystem::stopServo, bufferSubsystem));
-  //   driverXbox.a().whileTrue(Commands.startEnd(() -> bufferSubsystem.percentOutServo(0.05), bufferSubsystem::stopServo, bufferSubsystem));
-  //   driverXbox.rightTrigger().whileTrue(shooterCommand);
-  //   driverXbox.x().whileTrue(Commands.startEnd(() -> bufferSubsystem.percentOut2(velocityBuffer), bufferSubsystem::stop, bufferSubsystem));
-  //   driverXbox.b().whileTrue(Commands.startEnd(() -> bufferSubsystem.percentOut2(-velocityBuffer), bufferSubsystem::stop, bufferSubsystem));
-  //   driverXbox.leftTrigger().whileTrue(Commands.startEnd(() -> intakeSubsystem.percentOut(velocityIntake), intakeSubsystem::stop, intakeSubsystem));
-  //   driverXbox.leftBumper().whileTrue(Commands.startEnd(() -> intakeSubsystem.percentOut(-velocityIntake), intakeSubsystem::stop, intakeSubsystem));
-  //   driverXbox.povUp().whileTrue(bufferShooterCommand2);
+  }
 
-  // } else {
-  //   copilotXbox.rightBumper().whileTrue(ShootAutoCommand);
-  //   copilotXbox.y().whileTrue(Commands.startEnd(() -> bufferSubsystem.percentOutServo(-0.05), bufferSubsystem::stopServo, bufferSubsystem));
-  //   copilotXbox.a().whileTrue(Commands.startEnd(() -> bufferSubsystem.percentOutServo(0.05), bufferSubsystem::stopServo, bufferSubsystem));
-  //   copilotXbox.rightTrigger().whileTrue(shooterCommand);
-  //   copilotXbox.x().whileTrue(Commands.startEnd(() -> bufferSubsystem.percentOut2(velocityBuffer), bufferSubsystem::stop, bufferSubsystem));
-  //   copilotXbox.b().whileTrue(Commands.startEnd(() -> bufferSubsystem.percentOut2(-velocityBuffer), bufferSubsystem::stop, bufferSubsystem));
-  //   copilotXbox.leftBumper().whileTrue(Commands.startEnd(() -> intakeSubsystem.percentOut(velocityIntake), intakeSubsystem::stop, intakeSubsystem));
-  //   copilotXbox.leftTrigger().whileTrue(Commands.startEnd(() -> intakeSubsystem.percentOut(-velocityIntake), intakeSubsystem::stop, intakeSubsystem));
-  //   copilotXbox.povUp().whileTrue(bufferShooterCommand2);
-  //   }
-     }
+  private void configureBindingsDriverUtilities() {
 
+    if (DriverStation.isTest()) {
+        return;
+    }
+
+    driverXbox.a().onTrue(
+        Commands.runOnce(drivebase::zeroGyro));
+
+    driverXbox.x().onTrue(
+        Commands.runOnce(drivebase::addFakeVisionReading));
+
+  }
+
+  
   public Command getAutonomousCommand()  
   {
    return drivebase.getAutonomousCommand("percurso");
